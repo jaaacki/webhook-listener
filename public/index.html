@@ -229,7 +229,7 @@
         const qs = evt.queryStrings || [];
         queryEl.innerHTML = qs.length
           ? qs.map((q) => `<tr><th>${q.name}</th><td>${q.value}</td></tr>`).join("")
-          : `<tr><th colspan=\"2\">None</th></tr>`;
+          : `<tr><th colspan="2">None</th></tr>`;
 
         const formValues = evt.formValues || [];
         const formFiles = evt.formFiles || [];
@@ -241,10 +241,10 @@
         ];
         formEl.innerHTML = formRows.length
           ? formRows.join("")
-          : `<tr><th colspan=\"2\">None</th></tr>`;
+          : `<tr><th colspan="2">None</th></tr>`;
 
         headersEl.innerHTML = Object.entries(evt.headers || {})
-          .map(([k, v]) => `<tr><th>${k}</th><td>${Array.isArray(v) ? v.join(\", \") : v}</td></tr>`)
+          .map(([k, v]) => `<tr><th>${k}</th><td>${Array.isArray(v) ? v.join(", ") : v}</td></tr>`)
           .join("");
 
         const size = evt.sizeBytes || 0;
