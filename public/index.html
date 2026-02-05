@@ -35,6 +35,21 @@
         backdrop-filter: blur(6px);
       }
       .title { font-weight: 600; letter-spacing: 0.5px; }
+      .title-wrap {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .hook-url {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        font-size: 12px;
+        color: var(--accent);
+        background: #0b0f17;
+        border: 1px solid var(--border);
+        padding: 4px 8px;
+        border-radius: 8px;
+      }
       .controls {
         display: flex;
         gap: 8px;
@@ -141,7 +156,10 @@
   </head>
   <body>
     <header>
-      <div class="title">Webhook Listener</div>
+      <div class="title-wrap">
+        <div class="title">Webhook Listener</div>
+        <div id="hookUrl" class="hook-url">/hook/</div>
+      </div>
       <div class="controls">
         <label for="ns">Namespace</label>
         <select id="ns"></select>
@@ -192,6 +210,7 @@
       const formatJsonEl = document.getElementById("formatJson");
       const wrapEl = document.getElementById("wrap");
       const statusEl = document.getElementById("status");
+      const hookUrlEl = document.getElementById("hookUrl");
 
       let events = [];
       let currentNs = "";
@@ -274,6 +293,7 @@
         });
         currentNs = data.namespaces[0] || "";
         nsSelect.value = currentNs;
+        updateHookUrl();
       }
 
       async function loadEvents() {
@@ -289,6 +309,7 @@
 
       nsSelect.addEventListener("change", async () => {
         currentNs = nsSelect.value;
+        updateHookUrl();
         await loadEvents();
       });
 
@@ -312,6 +333,14 @@
         if (events.length) {
           showEvent(events[events.length - 1]);
         }
+      }
+
+      function updateHookUrl() {
+        if (!currentNs) {
+          hookUrlEl.textContent = "/hook/";
+          return;
+        }
+        hookUrlEl.textContent = `${location.protocol}//${location.host}/hook/${currentNs}`;
       }
 
       formatJsonEl.addEventListener("change", refreshActive);
