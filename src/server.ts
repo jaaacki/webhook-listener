@@ -131,7 +131,7 @@ app.all("/hook/:ns", (req, res) => {
   res.status(200).json({ ok: true, id: event.id });
 });
 
-wss.on("connection", (ws) => {
+wss.on("connection", (ws: import("ws").WebSocket) => {
   ws.send(JSON.stringify({ type: "hello", namespaces: NAMESPACES }));
 });
 
