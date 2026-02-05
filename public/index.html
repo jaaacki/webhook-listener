@@ -233,15 +233,17 @@
       }
 
       function showEvent(evt) {
+        const sizeBytes = Number(evt.sizeBytes ?? (evt.bodyRaw ? evt.bodyRaw.length : 0));
+        const durationMs = Number(evt.durationMs ?? 0);
         metaEl.innerHTML = `
-          <tr><th>Method</th><td>${evt.method}</td></tr>
-          <tr><th>URL</th><td>${evt.fullUrl || evt.path}</td></tr>
+          <tr><th>Method</th><td>${evt.method || ""}</td></tr>
+          <tr><th>URL</th><td>${evt.fullUrl || evt.path || ""}</td></tr>
           <tr><th>Host</th><td>${evt.host || ""}</td></tr>
-          <tr><th>Date</th><td>${evt.timestamp}</td></tr>
-          <tr><th>Size</th><td>${evt.sizeBytes} bytes</td></tr>
-          <tr><th>Time</th><td>${evt.durationMs.toFixed(3)} ms</td></tr>
-          <tr><th>ID</th><td>${evt.id}</td></tr>
-          <tr><th>Remote</th><td>${evt.remoteAddress}</td></tr>
+          <tr><th>Date</th><td>${evt.timestamp || ""}</td></tr>
+          <tr><th>Size</th><td>${sizeBytes} bytes</td></tr>
+          <tr><th>Time</th><td>${durationMs.toFixed(3)} ms</td></tr>
+          <tr><th>ID</th><td>${evt.id || ""}</td></tr>
+          <tr><th>Remote</th><td>${evt.remoteAddress || ""}</td></tr>
           <tr><th>User-Agent</th><td>${evt.userAgent || ""}</td></tr>
         `;
 
@@ -266,7 +268,7 @@
           .map(([k, v]) => `<tr><th>${k}</th><td>${Array.isArray(v) ? v.join(", ") : v}</td></tr>`)
           .join("");
 
-        const size = evt.sizeBytes || 0;
+        const size = sizeBytes || 0;
         payloadMetaEl.textContent = evt.contentLength
           ? `content-length: ${evt.contentLength} | ${size} bytes`
           : `${size} bytes`;
