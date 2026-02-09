@@ -45,4 +45,5 @@ steps:
     depends_on:
       - docker-build
     when:
-      - status: failure
+      - event: [push, pull_request, tag, manual]
+        status: failure
