@@ -23,3 +23,26 @@ steps:
       - typecheck
     when:
       - event: [push, pull_request, tag, manual]
+
+  docker-build:
+    image: woodpeckerci/plugin-docker-buildx:4
+    settings:
+      repo: sparkfn/webhook-listener
+      dockerfile: Dockerfile
+      dry_run: true
+    depends_on:
+      - build
+    when:
+      - event: push
+        branch: [main, prod]
+
+  notify-failure:
+    image: alpine:latest
+    commands:
+      - echo "Pipeline failed for ${CI_REPO} on branch ${CI_COMMIT_BRANCH}"
+      - echo "Commit ${CI_COMMIT_SHA} by ${CI_COMMIT_AUTHOR}"
+      - echo "Check pipeline at ${CI_PIPELINE_FORGE_URL}"
+    depends_on:
+      - docker-build
+    when:
+      - status: failure
