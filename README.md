@@ -46,8 +46,18 @@ Namespaces act as isolated webhook endpoints. For example, with the above config
 
 ### 3. Start the service
 
+**Development** (hot-reload with source bind-mount):
+
 ```bash
-docker compose up --build
+./scripts/compose --dev up --build
+# or: docker compose --profile dev up --build
+```
+
+**Production** (pre-built image, detached):
+
+```bash
+./scripts/compose --prod up -d --build
+# or: docker compose --profile prod up -d --build
 ```
 
 ### 4. Access the UI
@@ -67,6 +77,7 @@ Configure these in your `.env` file (see `.env.example`):
 | `NAMESPACES` | `""` | Comma-separated list of allowed namespaces (e.g., `alpha,beta,dev`) |
 | `DATA_DIR` | `./data` (code), `/data` (Dockerfile) | Directory path for event persistence. The Dockerfile sets `/data`; without Docker the code defaults to `./data` (relative). |
 | `PORT` | `18800` | Port for the webhook listener service |
+| `MAX_EVENTS_PER_NAMESPACE` | `1000` | Maximum events kept in memory per namespace (oldest are evicted) |
 
 ### Example Configuration
 
@@ -255,7 +266,8 @@ Each line is a JSON object representing one event. Events are loaded into memory
 Run with hot-reloading and additional debugging:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+./scripts/compose --dev up --build
+# or: docker compose --profile dev up --build
 ```
 
 ### Project Structure
@@ -269,10 +281,11 @@ webhook-listener/
 ├── data/                   # Event persistence (created at runtime)
 │   └── <namespace>/
 │       └── events.jsonl
-├── docker-compose.yml      # Production configuration
-├── docker-compose.dev.yml  # Development overrides
+├── scripts/
+│   └── compose             # Wrapper: ./scripts/compose --dev|--prod ...
+├── docker-compose.yml      # Dev + prod via profiles
 ├── Dockerfile              # Container image
-├── Caddyfile               # Reverse proxy config
+├── Caddyfile               # Reverse proxy config (dev profile)
 └── PDR.md                  # Project Decision Record
 ```
 

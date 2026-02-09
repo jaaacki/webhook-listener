@@ -1,24 +1,64 @@
+# =============================================================================
+# Docker Compose configuration with profiles
+# =============================================================================
+# Usage:
+#   Dev:  docker compose --profile dev up --build
+#   Prod: docker compose --profile prod up -d --build
+#
+# Or use the wrapper script:
+#   ./scripts/compose --dev up --build
+#   ./scripts/compose --prod up -d --build
+# =============================================================================
+
+x-web-common: &web-common
+  build: .
+  env_file:
+    - .env
+  environment:
+    - PORT=18800
+    - DATA_DIR=/data
+  volumes:
+    - ./data:/data
+
 services:
-  web:
-    build: .
-    env_file:
-      - .env
+  # ---------------------------------------------------------------------------
+  # Dev: hot-reload with source bind-mount + Caddy reverse proxy
+  # ---------------------------------------------------------------------------
+  web-dev:
+    <<: *web-common
+    profiles: [dev]
     environment:
       - PORT=18800
       - DATA_DIR=/data
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=1
     volumes:
+      - ./src:/app/src
+      - ./public:/app/public
       - ./data:/data
+    command: sh -c "npm install && npm run dev"
     expose:
       - "18800"
 
   proxy:
     image: caddy:2
+    profiles: [dev]
     ports:
       - "18800:80"
       - "14433:443"
     environment:
-      - UPSTREAM=web:18800
+      - UPSTREAM=web-dev:18800
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
     depends_on:
-      - web
+      - web-dev
+
+  # ---------------------------------------------------------------------------
+  # Prod: pre-built image, no source mount, restart policy
+  # ---------------------------------------------------------------------------
+  web:
+    <<: *web-common
+    profiles: [prod]
+    restart: unless-stopped
+    ports:
+      - "18800:18800"

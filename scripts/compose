@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+case "${1:-}" in
+  --dev)  shift; exec docker compose --profile dev "$@" ;;
+  --prod) shift; exec docker compose --profile prod "$@" ;;
+  *)
+    echo "Usage: ./scripts/compose --dev|--prod [docker compose args...]"
+    echo ""
+    echo "Examples:"
+    echo "  ./scripts/compose --dev up --build"
+    echo "  ./scripts/compose --prod up -d --build"
+    exit 1
+    ;;
+esac
