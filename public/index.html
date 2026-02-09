@@ -342,6 +342,29 @@
         grid-template-columns: 1fr;
       }
     }
+
+    .event-count {
+      padding: 6px 10px;
+      font-size: 11px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .btn-load-more {
+      display: block;
+      width: 100%;
+      padding: 8px;
+      background: var(--panel-2);
+      border: none;
+      border-top: 1px solid var(--border);
+      color: var(--accent);
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .btn-load-more:hover {
+      background: var(--event-active);
+    }
   </style>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -371,7 +394,9 @@
         <div class="title">Events</div>
         <button id="clearBtn" class="btn btn-danger">Clear</button>
       </header>
+      <div id="eventCount" class="event-count" style="display:none"></div>
       <div id="events" class="events"></div>
+      <button id="loadMoreBtn" class="btn-load-more" style="display:none">Load More</button>
     </section>
     <section class="panel">
       <header>
@@ -432,6 +457,8 @@
     let activeId = "";
     let confirmClear = false;
     let confirmTimeout = null;
+    let totalEvents = 0;
+    let hasMore = false;
 
     function esc(str) {
       if (str === null || str === undefined) return "";
@@ -536,24 +563,45 @@
       updateHookUrl();
     }
 
-    async function loadEvents() {
+    async function loadEvents(reset) {
       if (!currentNs) return;
-      const res = await fetch(`/api/events?ns=${encodeURIComponent(currentNs)}`);
+      const limit = 50;
+      const offset = reset ? 0 : events.length;
+      const res = await fetch(`/api/events?ns=${encodeURIComponent(currentNs)}&limit=${limit}&offset=${offset}`);
       const data = await res.json();
-      events = data.events || [];
+      if (reset) {
+        events = data.events || [];
+      } else {
+        events = events.concat(data.events || []);
+      }
+      totalEvents = data.total || events.length;
+      hasMore = data.hasMore || false;
+      updateEventCount();
       renderEvents();
-      if (events.length) {
+      if (reset && events.length) {
         activeId = events[events.length - 1].id;
         showEvent(events[events.length - 1]);
         renderEvents();
       }
     }
 
+    function updateEventCount() {
+      const countEl = document.getElementById("eventCount");
+      const loadMoreBtn = document.getElementById("loadMoreBtn");
+      if (totalEvents > events.length) {
+        countEl.textContent = `Showing ${events.length} of ${totalEvents} events`;
+        countEl.style.display = "";
+      } else {
+        countEl.style.display = "none";
+      }
+      loadMoreBtn.style.display = hasMore ? "" : "none";
+    }
+
     nsSelect.addEventListener("change", async () => {
       currentNs = nsSelect.value;
       localStorage.setItem("selectedNamespace", currentNs);
       updateHookUrl();
-      await loadEvents();
+      await loadEvents(true);
     });
 
     function connectWs() {
@@ -566,9 +614,25 @@
           const data = JSON.parse(msg.data);
           if (data.type === "event" && data.event.namespace === currentNs) {
             events.push(data.event);
+            totalEvents++;
+            updateEventCount();
             activeId = data.event.id;
             renderEvents();
             showEvent(data.event);
+          }
+          if (data.type === "clear" && data.namespace === currentNs) {
+            events = [];
+            totalEvents = 0;
+            hasMore = false;
+            updateEventCount();
+            activeId = "";
+            renderEvents();
+            metaEl.innerHTML = "";
+            queryEl.innerHTML = "";
+            formEl.innerHTML = "";
+            headersEl.innerHTML = "";
+            payloadEl.textContent = "";
+            payloadMetaEl.textContent = "";
           }
         } catch { }
       };
@@ -618,6 +682,9 @@
           console.error("Failed to clear events:", e);
         }
         events = [];
+        totalEvents = 0;
+        hasMore = false;
+        updateEventCount();
         activeId = "";
         renderEvents();
         metaEl.innerHTML = "";
@@ -629,6 +696,8 @@
         resetClearBtn();
       }
     });
+
+    document.getElementById("loadMoreBtn").addEventListener("click", () => loadEvents(false));
 
     // Theme toggle functionality
     const themeToggle = document.getElementById("themeToggle");
@@ -658,7 +727,7 @@
 
     (async () => {
       await loadNamespaces();
-      await loadEvents();
+      await loadEvents(true);
       connectWs();
     })();
   </script>
