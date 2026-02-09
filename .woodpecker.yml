@@ -1,0 +1,25 @@
+steps:
+  install:
+    image: node:20-alpine
+    commands:
+      - npm ci
+    when:
+      - event: [push, pull_request, tag, manual]
+
+  typecheck:
+    image: node:20-alpine
+    commands:
+      - npx tsc --noEmit
+    depends_on:
+      - install
+    when:
+      - event: [push, pull_request, tag, manual]
+
+  build:
+    image: node:20-alpine
+    commands:
+      - npx tsc -p tsconfig.json
+    depends_on:
+      - typecheck
+    when:
+      - event: [push, pull_request, tag, manual]
