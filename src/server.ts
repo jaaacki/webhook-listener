@@ -12,6 +12,7 @@ const NAMESPACES = (process.env.NAMESPACES ?? "")
   .split(",")
   .map((n) => n.trim())
   .filter(Boolean);
+const MAX_EVENTS_PER_NAMESPACE = Math.max(1, Number(process.env.MAX_EVENTS_PER_NAMESPACE ?? 1000));
 
 const app = express();
 const server = http.createServer(app);
@@ -49,10 +50,8 @@ function loadEvents(ns: string) {
   if (!fs.existsSync(file)) return [] as EventRecord[];
   const content = fs.readFileSync(file, "utf8");
   if (!content.trim()) return [] as EventRecord[];
-  return content
-    .trim()
-    .split("\n")
-    .map((line) => JSON.parse(line) as EventRecord);
+  const lines = content.trim().split("\n");
+  return lines.slice(-MAX_EVENTS_PER_NAMESPACE).map((line) => JSON.parse(line) as EventRecord);
 }
 
 function appendEvent(ns: string, event: EventRecord) {
@@ -97,7 +96,12 @@ app.get("/api/events", (req, res) => {
   if (!ensureNamespace(ns)) {
     return res.status(404).json({ error: "namespace_not_found" });
   }
-  res.json({ events: inMemory[ns] ?? [] });
+  const all = inMemory[ns] ?? [];
+  const limit = Math.min(Math.max(1, Number(req.query.limit) || 50), 1000);
+  const offset = Math.max(0, Number(req.query.offset) || 0);
+  const events = all.slice(offset, offset + limit);
+  const hasMore = offset + limit < all.length;
+  res.json({ events, total: all.length, hasMore });
 });
 
 app.delete("/api/events", (req, res) => {
@@ -227,6 +231,9 @@ app.all("/hook/:ns", async (req, res) => {
 
   inMemory[ns] = inMemory[ns] ?? [];
   inMemory[ns].push(event);
+  if (inMemory[ns].length > MAX_EVENTS_PER_NAMESPACE) {
+    inMemory[ns] = inMemory[ns].slice(-MAX_EVENTS_PER_NAMESPACE);
+  }
   appendEvent(ns, event);
 
   const payload = JSON.stringify({ type: "event", event });
@@ -245,4 +252,5 @@ wss.on("connection", (ws: import("ws").WebSocket) => {
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`server listening on 0.0.0.0:${PORT}`);
+  console.log(`max events per namespace: ${MAX_EVENTS_PER_NAMESPACE}`);
 });
