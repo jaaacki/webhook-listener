@@ -13,6 +13,10 @@ const NAMESPACES = (process.env.NAMESPACES ?? "")
   .map((n) => n.trim())
   .filter(Boolean);
 const MAX_EVENTS_PER_NAMESPACE = Math.max(1, Number(process.env.MAX_EVENTS_PER_NAMESPACE ?? 1000));
+// TTL in days for automatic event expiration. 0 = disabled (default).
+const EVENT_TTL_DAYS = Math.max(0, Number(process.env.EVENT_TTL_DAYS ?? 0));
+// Google OAuth client ID for sign-in (optional - enables Google Sign-In if set)
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? "";
 
 const app = express();
 const server = http.createServer(app);
@@ -45,13 +49,49 @@ function eventsFile(ns: string) {
   return path.join(namespacePath(ns), "events.jsonl");
 }
 
+/**
+ * Filter out events older than TTL days.
+ * Returns all events if ttlDays is 0 (disabled).
+ */
+function pruneOldEvents(events: EventRecord[], ttlDays: number): EventRecord[] {
+  if (ttlDays <= 0) return events;
+  const cutoff = Date.now() - ttlDays * 24 * 60 * 60 * 1000;
+  return events.filter((e) => new Date(e.timestamp).getTime() >= cutoff);
+}
+
+/**
+ * Rewrite the JSONL file on disk, removing events older than TTL.
+ * This is called on startup to clean up old data.
+ */
+function pruneDiskFile(ns: string, ttlDays: number): void {
+  if (ttlDays <= 0) return;
+  const file = eventsFile(ns);
+  if (!fs.existsSync(file)) return;
+
+  const content = fs.readFileSync(file, "utf8");
+  if (!content.trim()) return;
+
+  const lines = content.trim().split("\n");
+  const events = lines.map((line) => JSON.parse(line) as EventRecord);
+  const kept = pruneOldEvents(events, ttlDays);
+
+  // Only rewrite if we actually removed events
+  if (kept.length < events.length) {
+    const newContent = kept.map((e) => JSON.stringify(e)).join("\n");
+    fs.writeFileSync(file, newContent + (newContent ? "\n" : ""));
+    console.log(`pruned ${events.length - kept.length} old events from namespace ${ns} (TTL: ${ttlDays} days)`);
+  }
+}
+
 function loadEvents(ns: string) {
   const file = eventsFile(ns);
   if (!fs.existsSync(file)) return [] as EventRecord[];
   const content = fs.readFileSync(file, "utf8");
   if (!content.trim()) return [] as EventRecord[];
   const lines = content.trim().split("\n");
-  return lines.slice(-MAX_EVENTS_PER_NAMESPACE).map((line) => JSON.parse(line) as EventRecord);
+  const events = lines.map((line) => JSON.parse(line) as EventRecord);
+  // Filter out events older than TTL, then cap at max in-memory size
+  return pruneOldEvents(events, EVENT_TTL_DAYS).slice(-MAX_EVENTS_PER_NAMESPACE);
 }
 
 function appendEvent(ns: string, event: EventRecord) {
@@ -84,11 +124,18 @@ type EventRecord = {
 const inMemory: Record<string, EventRecord[]> = {};
 
 for (const ns of NAMESPACES) {
+  // Prune old events from disk if TTL is configured
+  pruneDiskFile(ns, EVENT_TTL_DAYS);
+  // Load events into memory (already filtered by TTL)
   inMemory[ns] = loadEvents(ns);
 }
 
 app.get("/api/namespaces", (_req, res) => {
   res.json({ namespaces: NAMESPACES });
+});
+
+app.get("/api/config", (_req, res) => {
+  res.json({ googleClientId: GOOGLE_CLIENT_ID });
 });
 
 app.get("/api/events", (req, res) => {
@@ -253,4 +300,9 @@ wss.on("connection", (ws: import("ws").WebSocket) => {
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`server listening on 0.0.0.0:${PORT}`);
   console.log(`max events per namespace: ${MAX_EVENTS_PER_NAMESPACE}`);
+  if (EVENT_TTL_DAYS > 0) {
+    console.log(`event TTL: ${EVENT_TTL_DAYS} days`);
+  } else {
+    console.log(`event TTL: disabled`);
+  }
 });
