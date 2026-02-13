@@ -78,6 +78,9 @@ Configure these in your `.env` file (see `.env.example`):
 | `DATA_DIR` | `./data` (code), `/data` (Dockerfile) | Directory path for event persistence. The Dockerfile sets `/data`; without Docker the code defaults to `./data` (relative). |
 | `PORT` | `18800` | Port for the webhook listener service |
 | `MAX_EVENTS_PER_NAMESPACE` | `1000` | Maximum events kept in memory per namespace (oldest are evicted) |
+| `EVENT_TTL_DAYS` | `0` | Days to retain events. Events older than TTL are removed on startup. `0` disables automatic cleanup. |
+| `EVENT_TTL_DAYS` | `0` | Days to retain events. Events older than TTL are removed on startup. `0` disables automatic cleanup. |
+| `EVENT_TTL_DAYS` | `0` | Days to retain events. Events older than TTL are removed on startup. `0` disables automatic cleanup. |
 
 ### Example Configuration
 
@@ -385,7 +388,7 @@ For detailed architectural decisions and design rationale, see [PDR.md](PDR.md).
 - No built-in authentication or authorization
 - No event filtering or search (yet)
 - No rate limiting
-- Unlimited storage (events persist indefinitely)
+- Event TTL only runs on startup (no periodic cleanup yet — see #17)
 - Single-tenant design (no multi-user isolation)
 
 ## Contributing
